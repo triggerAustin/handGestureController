@@ -1,0 +1,6 @@
+# mediapipe 0.10.14 still ships the mp.solutions.hands API and has wheels for Python 3.9-3.12.
+mediapipe==0.10.14
+numpy<2
+opencv-contrib-python==4.10.0.84
+i3ipc>=2.2.1
+tomli>=2.0; python_version < "3.11"

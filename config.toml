@@ -1,0 +1,175 @@
+# gestured config. Copy to ~/.config/gestured/config.toml and edit freely.
+# Every setting here overrides the built-in default; anything omitted keeps its default.
+# Only the [[binding]] entries are required.
+
+[camera]
+index = 0            # /dev/video0. Can also be a path like "/dev/video2"
+width = 640
+height = 480
+fourcc = "MJPG"      # "" to keep the driver default
+device_fps = 30
+flip = true          # mirrored once at capture
+
+[loop]
+fps_active = 30      # processing rate while a hand is visible (15 = lighter on CPU, slower to react)
+fps_idle = 6         # processing rate when no hand has been seen for idle_after_s
+idle_after_s = 2.0
+lost_grace_s = 0.25
+hold_grace_s = 0.15      # holds survive pose dropouts shorter than this
+two_grace_s = 0.3        # keep two-hand state when the second hand drops out this briefly
+label_votes = 3          # frames used to vote on left/right
+cooldown_s = 0.3
+stats_every_s = 10.0
+notifications = true
+notify_pose = true           # toast when a pinch / fist / thumbs up is recognised
+pose_notify_after_s = 0.12   # pose must be steady this long before the toast
+pose_notify_cooldown_s = 0.8 # at most one pose toast per this many seconds
+hud = true                   # one always-present notification (workspace, hand state, last action);
+                             # replaces the hand-detected / pose toasts. false = back to toasts
+hud_min_interval_s = 0.12    # redraw at most this often
+
+[detector]
+model_complexity = 0
+min_detection_confidence = 0.6
+min_tracking_confidence = 0.5
+swap_handedness = false   # set true if left/right hands come out reversed
+
+[pose]
+pinch_on = 0.35
+pinch_off = 0.55
+finger_extend = 1.15
+thumb_extend = 0.75
+fist_curl_max = 0.27          # index curl below this (with all fingers curled) = fist, not pinch
+palm_min_spread = 0.92        # swipes only count while the palm is flat (stops phantom swipes when closing the hand)
+palm_min_fingers = 3          # extended fingers (of 4) that count as an open palm
+thumbs_up_min = 0.45          # thumbs up: thumb tip this far (x palm size) above the index base, other fingers curled
+fists_require_open_first = true   # open both hands before making fists (kill safety)
+
+[swipe]
+# Open palm (not moving fast) for arm_s -> armed. Then EITHER the whole hand moving
+# (min_distance) OR a wave of the fingers/wrist (wave_distance) within window_s fires once.
+# The hand must rest for rearm_s before the next swipe (so bringing the hand back to
+# centre does not fire the opposite direction).
+arm_s = 0.05             # palm open and not moving fast this long before it arms
+still_max = 0.06         # "not moving fast" = stays inside this box (fraction of frame width)
+rearm_still_max = 0.04   # box the hand must rest in before the next swipe can arm
+palm_grace_s = 0.2       # tolerate the palm reading as not-open for this long
+min_distance = 0.09      # whole-hand travel needed, fraction of frame width
+wave_distance = 0.08     # fingertip travel needed for a wave (smaller = more sensitive)
+window_s = 0.5           # the motion must happen within this time
+axis_ratio = 1.5
+rearm_s = 0.25
+# Scrolling: after the first step, if the hand keeps travelling the same way it keeps stepping
+# through workspaces; pausing stops it right there. A quick swipe stays a single step.
+scrub = true
+scrub_delay_s = 0.4      # keep moving this long after the first step before it scrolls on
+scrub_interval_s = 0.3   # time between scroll steps (smaller = faster scrolling)
+scrub_pause_s = 0.2      # hand stops moving this long = stop at this workspace
+scrub_eps = 0.004        # forward movement that counts as "still moving"
+scrub_reverse = 0.06     # turning back by this much also ends the scroll
+
+[pinch_drag]
+# Pinch or fist held for settle_s, then move or wave the hand sideways = fires, then scrolls
+# the same way (window moves along with you). Same scrub_* keys as [swipe] can be set here.
+settle_s = 0.06
+min_distance = 0.10      # whole-hand travel needed
+wave_distance = 0.08     # pinch-point travel needed for a wave
+axis_ratio = 1.5
+scrub = true
+
+[resize]
+step_norm = 0.04         # smaller = more sensitive
+min_interval_s = 0.12
+
+[workspaces]
+count = 10
+wrap = true
+
+# ---------------------------------------------------------------------------
+# Bindings
+#   gesture : palm_swipe_left | palm_swipe_right | pinch_drag_left | pinch_drag_right
+#             three_finger_hold | fists_hold | thumbs_up_hold
+#             resize_spread_h | resize_squeeze_h | resize_spread_v | resize_squeeze_v
+#   hand    : left | right | any | both     (resize_* and fists_hold are "both")
+#   command : any Sway command(s), ";" chains them.
+#             Placeholders: {cur} current workspace, {next}, {prev} (wrap-aware)
+#   hold_s  : how long a hold gesture must be kept (hold gestures only)
+#   notify  : optional notification shown when a hold starts (cancelled if you let go)
+# ---------------------------------------------------------------------------
+
+# Open palm: switch workspace. Direction is inverted on purpose, like dragging the
+# workspaces: sway LEFT -> the workspace on the RIGHT (next), sway RIGHT -> LEFT (prev).
+[[binding]]
+name = "palm left -> next workspace"
+gesture = "palm_swipe_left"
+hand = "any"
+command = "workspace number {next}"
+
+[[binding]]
+name = "palm right -> previous workspace"
+gesture = "palm_swipe_right"
+hand = "any"
+command = "workspace number {prev}"
+
+# Pinch or fist, then move/wave: move the window to that side and follow it.
+# Direct direction: pinch LEFT -> workspace to the left, pinch RIGHT -> workspace to the right.
+[[binding]]
+name = "pinch left -> move window to previous workspace"
+gesture = "pinch_drag_left"
+hand = "any"
+command = "move container to workspace number {prev}; workspace number {prev}"
+
+[[binding]]
+name = "pinch right -> move window to next workspace"
+gesture = "pinch_drag_right"
+hand = "any"
+command = "move container to workspace number {next}; workspace number {next}"
+
+[[binding]]
+name = "kill window"
+gesture = "fists_hold"
+hand = "both"
+hold_s = 0.4
+notify = "Closing window - open your hands to cancel"
+command = "kill"
+
+[[binding]]
+name = "resize wider"
+gesture = "resize_spread_h"
+hand = "both"
+command = "resize grow width 10px"
+
+[[binding]]
+name = "resize narrower"
+gesture = "resize_squeeze_h"
+hand = "both"
+command = "resize shrink width 10px"
+
+[[binding]]
+name = "resize taller"
+gesture = "resize_spread_v"
+hand = "both"
+command = "resize grow height 10px"
+
+[[binding]]
+name = "resize shorter"
+gesture = "resize_squeeze_v"
+hand = "both"
+command = "resize shrink height 10px"
+
+[[binding]]
+name = "floating toggle"
+gesture = "three_finger_hold"
+hand = "any"
+hold_s = 0.25
+command = "floating toggle"
+
+# Thumbs up (fist with the thumb pointing up) = press Enter in the focused window, which
+# accepts most confirm dialogs. Needs wtype (sudo dnf install wtype). Careful: Enter goes to
+# whatever has focus, so an accidental thumbs up in a terminal runs the typed line.
+[[binding]]
+name = "confirm dialog (thumbs up)"
+gesture = "thumbs_up_hold"
+hand = "any"
+hold_s = 0.25
+command = "exec wtype -k Return"
