@@ -85,7 +85,7 @@ min_interval_s = 0.12
 count = 10
 wrap = true
 
-# ---------------------------------------------------------------------------
+
 # Bindings
 #   gesture : palm_swipe_left | palm_swipe_right | pinch_drag_left | pinch_drag_right
 #             three_finger_hold | fists_hold | thumbs_up_hold
@@ -95,7 +95,7 @@ wrap = true
 #             Placeholders: {cur} current workspace, {next}, {prev} (wrap-aware)
 #   hold_s  : how long a hold gesture must be kept (hold gestures only)
 #   notify  : optional notification shown when a hold starts (cancelled if you let go)
-# ---------------------------------------------------------------------------
+
 
 # Open palm: switch workspace. Direction is inverted on purpose, like dragging the
 # workspaces: sway LEFT -> the workspace on the RIGHT (next), sway RIGHT -> LEFT (prev).
