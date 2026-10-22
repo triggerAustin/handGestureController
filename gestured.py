@@ -6,6 +6,7 @@ All gesture -> command mappings live in config.toml.
 
 Run `gestured.py --help` for options. Start/stop normally goes through toggle.sh.
 """
+
 from __future__ import annotations
 
 import os
@@ -42,18 +43,16 @@ import mediapipe as mp
 
 log = logging.getLogger("gestured")
 
-# --------------------------------------------------------------------------
 # Config
-# --------------------------------------------------------------------------
 
 DEFAULTS = {
     "camera": {
         "index": 0,
         "width": 640,
         "height": 480,
-        "fourcc": "MJPG",   # MJPG = much less CPU than raw YUYV. "" to leave default.
+        "fourcc": "MJPG",  # MJPG = much less CPU than raw YUYV. "" to leave default.
         "device_fps": 30,
-        "flip": True,        # mirror once at capture so left/right are consistent
+        "flip": True,  # mirror once at capture so left/right are consistent
         # UVC controls applied at startup through v4l2-ctl (needs v4l-utils). Names come from
         # `v4l2-ctl -d /dev/video0 --list-ctrls`. A control the camera lacks is skipped.
         # exposure_dynamic_framerate=1 lets the camera drop its frame rate in dim light, which
@@ -63,28 +62,28 @@ DEFAULTS = {
         },
     },
     "loop": {
-        "fps_active": 30,      # camera ticks at 30: 30 = every frame, 15 = every 2nd (lighter)
-        "fps_idle": 6,         # while no hand is visible (also how fast a new hand is noticed)
-        "idle_after_s": 2.0,   # no hand for this long -> idle mode
+        "fps_active": 30,  # camera ticks at 30: 30 = every frame, 15 = every 2nd (lighter)
+        "fps_idle": 6,  # while no hand is visible (also how fast a new hand is noticed)
+        "idle_after_s": 2.0,  # no hand for this long -> idle mode
         "lost_grace_s": 0.25,  # tolerate brief detection dropouts
         "hold_grace_s": 0.15,  # a hold survives pose dropouts shorter than this
-        "two_grace_s": 0.3,    # keep two-hand state when the 2nd hand drops out this briefly
-        "label_votes": 3,      # frames used to vote on the left/right label
-        "cooldown_s": 0.3,     # min gap between discrete actions
-        "stats_every_s": 10.0, # heartbeat log interval
+        "two_grace_s": 0.3,  # keep two-hand state when the 2nd hand drops out this briefly
+        "label_votes": 3,  # frames used to vote on the left/right label
+        "cooldown_s": 0.3,  # min gap between discrete actions
+        "stats_every_s": 10.0,  # heartbeat log interval
         "notifications": True,
         # Desktop notification when a hand shows up after none was visible.
         "notify_hand": True,
         "hand_notify_min_absent_s": 1.0,  # hand must have been gone this long (skips flicker)
-        "hand_notify_cooldown_s": 3.0,    # at most one such notification per this many seconds
+        "hand_notify_cooldown_s": 3.0,  # at most one such notification per this many seconds
         # Desktop notification when a pinch / fist / thumbs up is recognised.
         "notify_pose": True,
-        "pose_notify_after_s": 0.12,      # the pose must be steady this long before the toast
-        "pose_notify_cooldown_s": 0.8,    # at most one pose toast per this many seconds
+        "pose_notify_after_s": 0.12,  # the pose must be steady this long before the toast
+        "pose_notify_cooldown_s": 0.8,  # at most one pose toast per this many seconds
         # One always-present notification, replaced in place, showing the workspace, the hand
         # state and the last action. When on, it replaces the hand-detected / pose toasts.
         "hud": True,
-        "hud_min_interval_s": 0.12,       # redraw at most this often
+        "hud_min_interval_s": 0.12,  # redraw at most this often
     },
     "detector": {
         "model_complexity": 0,
@@ -95,17 +94,17 @@ DEFAULTS = {
         "swap_handedness": False,
     },
     "pose": {
-        "pinch_on": 0.35,       # thumb-index tip distance / palm size to START a pinch
-        "pinch_off": 0.55,      # ...and to END it (hysteresis)
+        "pinch_on": 0.35,  # thumb-index tip distance / palm size to START a pinch
+        "pinch_off": 0.55,  # ...and to END it (hysteresis)
         "finger_extend": 1.15,  # tip-to-wrist / pip-to-wrist ratio for "extended"
-        "thumb_extend": 0.75,   # thumb tip to index base / palm size for "extended"
+        "thumb_extend": 0.75,  # thumb tip to index base / palm size for "extended"
         # Fist vs pinch is decided by the index finger, not by thumb distance: in a fist
         # the index tip folds back to its base (curl ~0.07-0.22 in logs), in a real pinch
         # the tip stays out to meet the thumb (curl ~0.29-0.50).
         "fist_curl_max": 0.27,  # all four fingers curled AND index curl below this = fist
         # A swipe only counts while the palm is flat: closing the hand shifts the palm
         # centre sideways and used to fire phantom swipes. Open palm reads ~1.0-1.2.
-        "palm_min_spread": 0.92, # thumb-index spread / palm size needed for palm/swipe
+        "palm_min_spread": 0.92,  # thumb-index spread / palm size needed for palm/swipe
         # Kill safety: both hands must have been seen open (not curled) before the fists
         # count. Stops a relaxed two-hand pinch (resize) from sliding into a kill.
         "fists_require_open_first": True,
@@ -117,27 +116,27 @@ DEFAULTS = {
         # Open palm (not moving fast) for arm_s -> armed. Then EITHER the whole hand moving
         # (min_distance) OR a wave of the fingers/wrist (wave_distance) within window_s fires
         # once. The hand must come to rest again (rearm_s) before the next.
-        "arm_s": 0.05,          # palm must be open and not moving fast this long before it arms
-        "still_max": 0.06,      # "not moving fast" = stays inside this box (fraction of frame width)
-        "rearm_still_max": 0.04,# box the hand must rest in before the next swipe can arm
-        "palm_grace_s": 0.2,    # tolerate the palm reading as not-open for this long
-        "min_distance": 0.09,   # whole-hand travel needed, as a fraction of frame width
+        "arm_s": 0.05,  # palm must be open and not moving fast this long before it arms
+        "still_max": 0.06,  # "not moving fast" = stays inside this box (fraction of frame width)
+        "rearm_still_max": 0.04,  # box the hand must rest in before the next swipe can arm
+        "palm_grace_s": 0.2,  # tolerate the palm reading as not-open for this long
+        "min_distance": 0.09,  # whole-hand travel needed, as a fraction of frame width
         "wave_distance": 0.08,  # fingertip travel needed (a wave swings the tips, not the palm)
-        "window_s": 0.5,        # the motion must happen within this time
-        "axis_ratio": 1.5,      # horizontal travel must beat vertical by this factor
-        "rearm_s": 0.25,        # rest needed after a swipe (stops the return stroke firing)
+        "window_s": 0.5,  # the motion must happen within this time
+        "axis_ratio": 1.5,  # horizontal travel must beat vertical by this factor
+        "rearm_s": 0.25,  # rest needed after a swipe (stops the return stroke firing)
     },
     "pinch_drag": {
         # Pinch or fist held steady for settle_s, then move or wave the hand sideways: fires
         # once, then the pinch must be released before the next. Either hand does the same.
-        "settle_s": 0.06,       # pinch must hold this long before the travel is measured
-        "min_distance": 0.10,   # whole-hand travel needed, as a fraction of frame width
+        "settle_s": 0.06,  # pinch must hold this long before the travel is measured
+        "min_distance": 0.10,  # whole-hand travel needed, as a fraction of frame width
         "wave_distance": 0.08,  # pinch-point travel needed (a wave swings it, not the palm)
-        "axis_ratio": 1.5,      # horizontal travel must beat vertical by this factor
+        "axis_ratio": 1.5,  # horizontal travel must beat vertical by this factor
     },
     "resize": {
-        "step_norm": 0.04,      # hand-spread change (fraction of frame width) per step + deadzone
-        "min_interval_s": 0.12, # rate limit between steps
+        "step_norm": 0.04,  # hand-spread change (fraction of frame width) per step + deadzone
+        "min_interval_s": 0.12,  # rate limit between steps
     },
     "workspaces": {
         "count": 10,
@@ -148,12 +147,12 @@ DEFAULTS = {
 # Scrolling: after a swipe / pinch-drag fires, keep stepping while the hand keeps travelling
 # the same way; a pause stops it. Applies to both [swipe] and [pinch_drag] (set per table).
 SCRUB_DEFAULTS = {
-    "scrub": True,            # false = one step per swipe, as before
-    "scrub_delay_s": 0.4,     # sustained motion this long after the first step before it scrolls on
+    "scrub": True,  # false = one step per swipe, as before
+    "scrub_delay_s": 0.4,  # sustained motion this long after the first step before it scrolls on
     "scrub_interval_s": 0.3,  # time between scroll steps while the hand keeps moving
-    "scrub_pause_s": 0.2,     # hand stops making forward progress this long = stop at this workspace
-    "scrub_eps": 0.004,       # forward progress that counts as "still moving" (fraction of width)
-    "scrub_reverse": 0.06,    # turning back by this much ends the scroll
+    "scrub_pause_s": 0.2,  # hand stops making forward progress this long = stop at this workspace
+    "scrub_eps": 0.004,  # forward progress that counts as "still moving" (fraction of width)
+    "scrub_reverse": 0.06,  # turning back by this much ends the scroll
 }
 for _t in ("swipe", "pinch_drag"):
     DEFAULTS[_t] = {**SCRUB_DEFAULTS, **DEFAULTS[_t]}
@@ -213,23 +212,38 @@ def load_config(path: Path) -> dict:
         command = b.get("command")
         name = b.get("name", f"binding{i}")
         if gesture not in KNOWN_GESTURES:
-            raise ConfigError(f"[{name}] unknown gesture {gesture!r}; known: {sorted(KNOWN_GESTURES)}")
+            raise ConfigError(
+                f"[{name}] unknown gesture {gesture!r}; known: {sorted(KNOWN_GESTURES)}"
+            )
         if hand not in VALID_HANDS:
-            raise ConfigError(f"[{name}] hand must be one of {sorted(VALID_HANDS)}, got {hand!r}")
+            raise ConfigError(
+                f"[{name}] hand must be one of {sorted(VALID_HANDS)}, got {hand!r}"
+            )
         if not command:
             raise ConfigError(f"[{name}] missing 'command'")
         hold_s = float(b.get("hold_s", 0.7 if gesture in HOLD_GESTURES else 0.0))
-        bindings.append(Binding(name, gesture, hand, command, hold_s, b.get("notify", "")))
+        bindings.append(
+            Binding(name, gesture, hand, command, hold_s, b.get("notify", ""))
+        )
     if not bindings:
         raise ConfigError("no [[binding]] entries found in config")
     cfg["bindings"] = bindings
     log.info("config ok: %d bindings", len(bindings))
     for b in bindings:
-        log.info("  binding %-22s %-18s hand=%-5s hold=%.2fs -> %s",
-                 b.name, b.gesture, b.hand, b.hold_s, b.command)
+        log.info(
+            "  binding %-22s %-18s hand=%-5s hold=%.2fs -> %s",
+            b.name,
+            b.gesture,
+            b.hand,
+            b.hold_s,
+            b.command,
+        )
         if "wtype" in b.command and not shutil.which("wtype"):
-            log.warning("  binding %r needs wtype, which is not installed "
-                        "(sudo dnf install wtype)", b.name)
+            log.warning(
+                "  binding %r needs wtype, which is not installed "
+                "(sudo dnf install wtype)",
+                b.name,
+            )
     return cfg
 
 
@@ -244,12 +258,13 @@ def find_config(explicit: str | None) -> Path:
     for c in candidates:
         if c.is_file():
             return c
-    raise ConfigError("config not found; looked in: " + ", ".join(str(c) for c in candidates))
+    raise ConfigError(
+        "config not found; looked in: " + ", ".join(str(c) for c in candidates)
+    )
 
 
-# --------------------------------------------------------------------------
 # Helpers: Sway, notifications
-# --------------------------------------------------------------------------
+
 
 class Sway:
     def __init__(self, dry_run: bool):
@@ -295,23 +310,48 @@ class Notifier:
     def __init__(self, enabled: bool):
         self.enabled = enabled
 
-    def send(self, body: str, title: str = "Gestures", timeout_ms: int = 1500,
-             tag: str = "gestured", wait: bool = True) -> None:
+    def send(
+        self,
+        body: str,
+        title: str = "Gestures",
+        timeout_ms: int = 1500,
+        tag: str = "gestured",
+        wait: bool = True,
+    ) -> None:
         """`tag` makes a new notification replace the previous one with the same tag (so
         a hand-detected toast can never replace the kill warning). `wait=False` returns
         immediately instead of blocking the frame loop."""
         if not self.enabled:
             return
-        cmd = ["notify-send", "-a", "gestured", "-t", str(timeout_ms),
-               "-h", f"string:x-canonical-private-synchronous:{tag}",
-               "-h", f"string:x-dunst-stack-tag:{tag}", title, body]
+        cmd = [
+            "notify-send",
+            "-a",
+            "gestured",
+            "-t",
+            str(timeout_ms),
+            "-h",
+            f"string:x-canonical-private-synchronous:{tag}",
+            "-h",
+            f"string:x-dunst-stack-tag:{tag}",
+            title,
+            body,
+        ]
         try:
             if wait:
-                subprocess.run(cmd, timeout=2, check=False,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(
+                    cmd,
+                    timeout=2,
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             else:
-                subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                 start_new_session=True)
+                subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
         except (FileNotFoundError, subprocess.TimeoutExpired):
             log.debug("notify-send unavailable")
 
@@ -323,14 +363,24 @@ class Hud:
         self.enabled = enabled
         self.min_interval = min_interval
         self.title = "Gesture control" + (" (dry-run)" if dry_run else "")
-        self.nid = None  # id printed by `notify-send -p`; 0 = unsupported, rely on the hints
+        self.nid = (
+            None  # id printed by `notify-send -p`; 0 = unsupported, rely on the hints
+        )
         self.shown = None
         self.last_sent = -1e9
 
     def _cmd(self, timeout_ms: int, tail: list) -> list:
-        cmd = ["notify-send", "-a", "gestured", "-t", str(timeout_ms),
-               "-h", "string:x-canonical-private-synchronous:gestured-hud",
-               "-h", "string:x-dunst-stack-tag:gestured-hud"]
+        cmd = [
+            "notify-send",
+            "-a",
+            "gestured",
+            "-t",
+            str(timeout_ms),
+            "-h",
+            "string:x-canonical-private-synchronous:gestured-hud",
+            "-h",
+            "string:x-dunst-stack-tag:gestured-hud",
+        ]
         if self.nid:
             cmd += ["-r", str(self.nid)]
         return cmd + tail
@@ -338,33 +388,59 @@ class Hud:
     def _send(self, body: str, timeout_ms: int = 0, wait: bool = False) -> None:
         quiet = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
         try:
-            if self.nid is None:  # first notification: learn its id so later ones replace it
-                r = subprocess.run(self._cmd(timeout_ms, ["-p", self.title, body]),
-                                   capture_output=True, text=True, timeout=2, check=False)
+            if (
+                self.nid is None
+            ):  # first notification: learn its id so later ones replace it
+                r = subprocess.run(
+                    self._cmd(timeout_ms, ["-p", self.title, body]),
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                    check=False,
+                )
                 out = r.stdout.strip()
                 if r.returncode == 0 and out.isdigit():
                     self.nid = int(out)
                     log.info("status notification shown (id %d)", self.nid)
                 else:
-                    self.nid = 0  # old libnotify without -p: fall back to the stack-tag hints
+                    self.nid = (
+                        0  # old libnotify without -p: fall back to the stack-tag hints
+                    )
                     if r.returncode != 0:
-                        subprocess.run(self._cmd(timeout_ms, [self.title, body]),
-                                       timeout=2, check=False, **quiet)
+                        subprocess.run(
+                            self._cmd(timeout_ms, [self.title, body]),
+                            timeout=2,
+                            check=False,
+                            **quiet,
+                        )
             elif wait:
-                subprocess.run(self._cmd(timeout_ms, [self.title, body]),
-                               timeout=2, check=False, **quiet)
+                subprocess.run(
+                    self._cmd(timeout_ms, [self.title, body]),
+                    timeout=2,
+                    check=False,
+                    **quiet,
+                )
             else:
-                subprocess.Popen(self._cmd(timeout_ms, [self.title, body]),
-                                 start_new_session=True, **quiet)
+                subprocess.Popen(
+                    self._cmd(timeout_ms, [self.title, body]),
+                    start_new_session=True,
+                    **quiet,
+                )
         except FileNotFoundError:
-            log.warning("notify-send not found; status notification disabled "
-                        "(sudo dnf install libnotify)")
+            log.warning(
+                "notify-send not found; status notification disabled "
+                "(sudo dnf install libnotify)"
+            )
             self.enabled = False
         except (subprocess.SubprocessError, OSError) as e:
             log.debug("status notification failed: %s", e)
 
     def show(self, body: str, now: float) -> None:
-        if not self.enabled or body == self.shown or now - self.last_sent < self.min_interval:
+        if (
+            not self.enabled
+            or body == self.shown
+            or now - self.last_sent < self.min_interval
+        ):
             return
         self.shown = body
         self.last_sent = now
@@ -385,11 +461,14 @@ def ws_targets(cur: int, count: int, wrap: bool) -> tuple[int, int]:
     return min(cur + 1, count), max(cur - 1, 1)
 
 
-# --------------------------------------------------------------------------
 # Hand features
-# --------------------------------------------------------------------------
 
-FINGER_JOINTS = {"index": (8, 6), "middle": (12, 10), "ring": (16, 14), "pinky": (20, 18)}
+FINGER_JOINTS = {
+    "index": (8, 6),
+    "middle": (12, 10),
+    "ring": (16, 14),
+    "pinky": (20, 18),
+}
 
 
 def dist(a, b) -> float:
@@ -414,23 +493,37 @@ class Hand:
         self.pinching = False  # filled in by the engine (needs hysteresis state)
         self.curled4 = not any(self.ext.values())
         # Calibration read-outs (shown in -v / preview) to tell a fist from a pinch:
-        self.curl = dist(pts[5], pts[8]) / self.size   # index tip -> index base
+        self.curl = dist(pts[5], pts[8]) / self.size  # index tip -> index base
         self.fist = self.curled4 and self.curl < pc["fist_curl_max"]
-        self.t_mid = dist(pts[4], pts[10]) / self.size  # thumb tip -> middle finger joint
-        self.three = (self.thumb and self.ext["index"] and self.ext["middle"]
-                      and not self.ext["ring"] and not self.ext["pinky"])
+        self.t_mid = (
+            dist(pts[4], pts[10]) / self.size
+        )  # thumb tip -> middle finger joint
+        self.three = (
+            self.thumb
+            and self.ext["index"]
+            and self.ext["middle"]
+            and not self.ext["ring"]
+            and not self.ext["pinky"]
+        )
         # Palm centre (wrist + the four finger bases): steadier than any fingertip and
         # still visible when the thumb/index tips are hidden from the camera.
-        self.palm = (sum(pts[i][0] for i in (0, 5, 9, 13, 17)) / 5.0,
-                     sum(pts[i][1] for i in (0, 5, 9, 13, 17)) / 5.0)
+        self.palm = (
+            sum(pts[i][0] for i in (0, 5, 9, 13, 17)) / 5.0,
+            sum(pts[i][1] for i in (0, 5, 9, 13, 17)) / 5.0,
+        )
         # Fingertip centroid: swings far when the hand waves about the wrist.
-        self.tips = (sum(pts[i][0] for i in (8, 12, 16, 20)) / 4.0,
-                     sum(pts[i][1] for i in (8, 12, 16, 20)) / 4.0)
+        self.tips = (
+            sum(pts[i][0] for i in (8, 12, 16, 20)) / 4.0,
+            sum(pts[i][1] for i in (8, 12, 16, 20)) / 4.0,
+        )
         self.palm_open = sum(self.ext.values()) >= pc["palm_min_fingers"]
         # Thumbs up: all four fingers curled, thumb out and clearly above the index base
         # (image y grows downward, so "above" means a smaller y). A thumbs up is never a fist.
-        self.thumbs_up = (self.curled4 and self.thumb
-                          and (pts[5][1] - pts[4][1]) / self.size > pc["thumbs_up_min"])
+        self.thumbs_up = (
+            self.curled4
+            and self.thumb
+            and (pts[5][1] - pts[4][1]) / self.size > pc["thumbs_up_min"]
+        )
         if self.thumbs_up:
             self.fist = False
 
@@ -449,14 +542,15 @@ class Hand:
 
     def describe(self) -> str:
         fingers = "".join(n[0] for n, v in self.ext.items() if v)
-        return (f"{self.label[0].upper()} pinch={self.pinch_ratio:.2f} curl={self.curl:.2f} "
-                f"tm={self.t_mid:.2f} thumb={'Y' if self.thumb else 'n'} "
-                f"ext={fingers or '-'} pose={self.pose_name()}")
+        return (
+            f"{self.label[0].upper()} pinch={self.pinch_ratio:.2f} curl={self.curl:.2f} "
+            f"tm={self.t_mid:.2f} thumb={'Y' if self.thumb else 'n'} "
+            f"ext={fingers or '-'} pose={self.pose_name()}"
+        )
 
 
-# --------------------------------------------------------------------------
 # Gesture state machines
-# --------------------------------------------------------------------------
+
 
 class Hold:
     """Pose must stay active for `need` seconds, fires once, then needs a release.
@@ -468,8 +562,14 @@ class Hold:
         self.notified = False
         self.last_active = 0.0
 
-    def update(self, active: bool, now: float, need: float,
-               grace: float = 0.0, force: bool = False):
+    def update(
+        self,
+        active: bool,
+        now: float,
+        need: float,
+        grace: float = 0.0,
+        force: bool = False,
+    ):
         if active:
             self.last_active = now
             if self.start is None:
@@ -511,9 +611,9 @@ class Scrub:
         self.active = True
         self.dir = direction
         self.sign = 1 if direction == "right" else -1
-        self.best = x          # furthest the hand has travelled in the scroll direction
+        self.best = x  # furthest the hand has travelled in the scroll direction
         self.t_start = now
-        self.t_moved = now     # last time the hand made forward progress
+        self.t_moved = now  # last time the hand made forward progress
         self.t_step = now
 
     def update(self, x: float, now: float, sc: dict):
@@ -527,7 +627,10 @@ class Scrub:
         if now - self.t_moved > sc["scrub_pause_s"]:
             self.active = False
             return "pause"
-        if now - self.t_start >= sc["scrub_delay_s"] and now - self.t_step >= sc["scrub_interval_s"]:
+        if (
+            now - self.t_start >= sc["scrub_delay_s"]
+            and now - self.t_step >= sc["scrub_interval_s"]
+        ):
             self.t_step = now
             return "step"
         return None
@@ -603,15 +706,21 @@ class PalmSwipe:
                 self.state = "armed" if ev == "pause" else "fired"
                 self.trace.clear()
                 self.trace.append(sample)
-                log.info("scroll %s", "paused - ready for the next swipe" if ev == "pause"
-                         else "turned back - rest to re-arm")
+                log.info(
+                    "scroll %s",
+                    "paused - ready for the next swipe"
+                    if ev == "pause"
+                    else "turned back - rest to re-arm",
+                )
             return None
 
         if self.state in ("idle", "fired"):
             if self.state == "idle":
                 still = self._still(now, sc["arm_s"], sc["still_max"])
             else:
-                still = self._still(now, sc["rearm_s"], sc["rearm_still_max"], tips=True)
+                still = self._still(
+                    now, sc["rearm_s"], sc["rearm_still_max"], tips=True
+                )
             if still:
                 self.state = "armed"
                 self.trace.clear()  # the stillness itself must not count as travel
@@ -625,8 +734,9 @@ class PalmSwipe:
             if now - t > sc["window_s"]:
                 continue
             for via, dx, dy, need in (
-                    ("hand move", pos[0] - px, pos[1] - py, sc["min_distance"]),
-                    ("wave", tip[0] - tx, tip[1] - ty, sc["wave_distance"])):
+                ("hand move", pos[0] - px, pos[1] - py, sc["min_distance"]),
+                ("wave", tip[0] - tx, tip[1] - ty, sc["wave_distance"]),
+            ):
                 if abs(dx) > abs(best):
                     best = dx
                 if abs(dx) >= need and abs(dx) >= sc["axis_ratio"] * abs(dy):
@@ -637,13 +747,20 @@ class PalmSwipe:
                     if sc["scrub"]:
                         self.state = "scrub"
                         self.via = via
-                        self.scrub.start(direction, pos[0] if via == "hand move" else tip[0], now)
+                        self.scrub.start(
+                            direction, pos[0] if via == "hand move" else tip[0], now
+                        )
                     else:
                         self.state = "fired"
                     return direction, False
         if abs(best) > 0.03:
-            log.debug("sway travel dx=%+.3f (need hand >=%.2f or wave >=%.2f within %.1fs)",
-                      best, sc["min_distance"], sc["wave_distance"], sc["window_s"])
+            log.debug(
+                "sway travel dx=%+.3f (need hand >=%.2f or wave >=%.2f within %.1fs)",
+                best,
+                sc["min_distance"],
+                sc["wave_distance"],
+                sc["window_s"],
+            )
         return None
 
 
@@ -699,8 +816,10 @@ class PinchDrag:
         if self.fired:
             return None
         best = 0.0
-        for src, via, need in ((0, "hand move", dc["min_distance"]),
-                               (1, "wave", dc["wave_distance"])):
+        for src, via, need in (
+            (0, "hand move", dc["min_distance"]),
+            (1, "wave", dc["wave_distance"]),
+        ):
             dx = pos[src][0] - self.anchor[src][0]
             dy = pos[src][1] - self.anchor[src][1]
             if abs(dx) > abs(best):
@@ -715,8 +834,12 @@ class PinchDrag:
                     self.fired = True
                 return direction, False
         if abs(best) > 0.03:
-            log.debug("pinch drag dx=%+.3f (need hand >=%.2f or wave >=%.2f)",
-                      best, dc["min_distance"], dc["wave_distance"])
+            log.debug(
+                "pinch drag dx=%+.3f (need hand >=%.2f or wave >=%.2f)",
+                best,
+                dc["min_distance"],
+                dc["wave_distance"],
+            )
         return None
 
 
@@ -752,13 +875,18 @@ class ResizeTracker:
         return f"resize_{'spread' if sign > 0 else 'squeeze'}_{axis}"
 
 
-# --------------------------------------------------------------------------
 # Engine
-# --------------------------------------------------------------------------
+
 
 class Engine:
-    def __init__(self, cfg: dict, sway: Sway, notifier: Notifier,
-                 hand_notifier: Notifier | None = None, hud: Hud | None = None):
+    def __init__(
+        self,
+        cfg: dict,
+        sway: Sway,
+        notifier: Notifier,
+        hand_notifier: Notifier | None = None,
+        hud: Hud | None = None,
+    ):
         self.cfg = cfg
         self.pc = cfg["pose"]
         self.sc = cfg["swipe"]
@@ -814,8 +942,12 @@ class Engine:
         """Keep the always-present notification in step with workspace / hand / last action."""
         if not self.hud.enabled:
             return
-        if self.hud_ws is None or (not self.sway.dry_run and now - self.hud_ws_t >= 1.0):
-            self.hud_ws = self.sway.current_ws()  # in dry-run only the first read; then simulated
+        if self.hud_ws is None or (
+            not self.sway.dry_run and now - self.hud_ws_t >= 1.0
+        ):
+            self.hud_ws = (
+                self.sway.current_ws()
+            )  # in dry-run only the first read; then simulated
             self.hud_ws_t = now
         body = f"Workspace {self.hud_ws}\n{self.hud_pose}"
         if self.hud_last:
@@ -857,9 +989,13 @@ class Engine:
         if now - self.last_hand_notify < self.hand_cooldown:
             return
         self.last_hand_notify = now
-        self.hand_notifier.send("Two hands detected" if mode == "two" else "Hand detected",
-                                title="Gesture control", timeout_ms=1200,
-                                tag="gestured-hand", wait=False)
+        self.hand_notifier.send(
+            "Two hands detected" if mode == "two" else "Hand detected",
+            title="Gesture control",
+            timeout_ms=1200,
+            tag="gestured-hand",
+            wait=False,
+        )
 
     def _pose_toast(self, name: str | None, now: float) -> None:
         """Toast when a pinch / fist / thumbs up has been steady for pose_after seconds."""
@@ -868,15 +1004,25 @@ class Engine:
             self.pose_since = now
             self.pose_sent = False
             return
-        if (name is None or self.pose_sent or not self.notify_pose or self.hud.enabled
-                or now - self.pose_since < self.pose_after
-                or now - self.last_pose_notify < self.pose_cooldown):
+        if (
+            name is None
+            or self.pose_sent
+            or not self.notify_pose
+            or self.hud.enabled
+            or now - self.pose_since < self.pose_after
+            or now - self.last_pose_notify < self.pose_cooldown
+        ):
             return
         self.pose_sent = True
         self.last_pose_notify = now
         log.info("pose detected: %s", name)
-        self.hand_notifier.send(name, title="Gesture control", timeout_ms=900,
-                                tag="gestured-pose", wait=False)
+        self.hand_notifier.send(
+            name,
+            title="Gesture control",
+            timeout_ms=900,
+            tag="gestured-pose",
+            wait=False,
+        )
 
     def reset_all(self, now: float) -> None:
         for g in self.holds:
@@ -900,8 +1046,11 @@ class Engine:
         return val
 
     def bindings_for(self, gesture: str, hand: str) -> list:
-        return [b for b in self.bindings
-                if b.gesture == gesture and (b.hand == "any" or b.hand == hand)]
+        return [
+            b
+            for b in self.bindings
+            if b.gesture == gesture and (b.hand == "any" or b.hand == hand)
+        ]
 
     def _debug(self, hand: Hand) -> None:
         line = hand.describe()
@@ -936,8 +1085,11 @@ class Engine:
         else:
             self._pose_toast(None, now)
 
-        palm = (h.palm_open and not h.pinching
-                and h.pinch_ratio >= self.pc["palm_min_spread"])
+        palm = (
+            h.palm_open
+            and not h.pinching
+            and h.pinch_ratio >= self.pc["palm_min_spread"]
+        )
         res = self.swipe.update(palm, h.palm, h.tips, now, self.sc)
         if res:
             direction, step = res
@@ -969,7 +1121,7 @@ class Engine:
             pose = "Hand"
         self.hud_pose = f"{label.capitalize()} hand: {pose}"
 
-    # ---- two hands: ONLY this handler runs while two hands are visible ----
+    # two hands: ONLY this handler runs while two hands are visible
     def _two(self, hands: list, now: float) -> None:
         a, b = sorted(hands, key=lambda h: h.pts[0][0])
         a.pinching = self._pinch("slot0", a)
@@ -1012,9 +1164,10 @@ class Engine:
         else:
             self.resize.reset()
 
-    # ---- holds ----
-    def _hold_update(self, gesture: str, hand: str, active: bool, now: float,
-                     force: bool = False) -> None:
+    # holds
+    def _hold_update(
+        self, gesture: str, hand: str, active: bool, now: float, force: bool = False
+    ) -> None:
         h = self.holds[gesture]
         if not active:
             ev = h.update(False, now, 0.0, self.hold_grace, force)
@@ -1039,7 +1192,7 @@ class Engine:
             h.notified = False
             self.emit(gesture, hand, now)
 
-    # ---- actions ----
+    # actions
     def emit(self, gesture: str, hand: str, now: float, cooldown: bool = True) -> None:
         if cooldown and now - self.last_action < self.cooldown:
             log.info("gesture %s ignored (cooldown)", gesture)
@@ -1061,18 +1214,24 @@ class Engine:
         except (KeyError, IndexError, ValueError) as e:
             log.error("[%s] bad command template %r: %s", b.name, b.command, e)
             return
-        log.info("[%s] workspace %d (next=%d prev=%d) -> %s", b.name, cur, nxt, prv, cmd)
+        log.info(
+            "[%s] workspace %d (next=%d prev=%d) -> %s", b.name, cur, nxt, prv, cmd
+        )
         self.sway.run(cmd)
-        target = nxt if "{next}" in b.command else (prv if "{prev}" in b.command else None)
-        if target is not None and (cmd.startswith("workspace number")
-                                   or "; workspace number" in cmd):
-            self.hud_ws = target  # shown at once; refreshed from Sway about once a second
+        target = (
+            nxt if "{next}" in b.command else (prv if "{prev}" in b.command else None)
+        )
+        if target is not None and (
+            cmd.startswith("workspace number") or "; workspace number" in cmd
+        ):
+            self.hud_ws = (
+                target  # shown at once; refreshed from Sway about once a second
+            )
         self.hud_last = f"Last: {b.name}"
 
 
-# --------------------------------------------------------------------------
 # Pidfile
-# --------------------------------------------------------------------------
+
 
 def pidfile_path() -> Path:
     return Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "gestured.pid"
@@ -1103,9 +1262,8 @@ def release_pidfile() -> None:
         pass
 
 
-# --------------------------------------------------------------------------
 # Main loop
-# --------------------------------------------------------------------------
+
 
 def open_camera(cc: dict):
     log.info("opening camera %s ...", cc["index"])
@@ -1118,9 +1276,14 @@ def open_camera(cc: dict):
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cc["height"])
     cap.set(cv2.CAP_PROP_FPS, cc["device_fps"])
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    log.info("camera opened: %dx%d @ %.0f fps (requested %dx%d)",
-             cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
-             cap.get(cv2.CAP_PROP_FPS), cc["width"], cc["height"])
+    log.info(
+        "camera opened: %dx%d @ %.0f fps (requested %dx%d)",
+        cap.get(cv2.CAP_PROP_FRAME_WIDTH),
+        cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
+        cap.get(cv2.CAP_PROP_FPS),
+        cc["width"],
+        cc["height"],
+    )
     return cap
 
 
@@ -1130,22 +1293,32 @@ def apply_camera_controls(cc: dict) -> None:
         return
     exe = shutil.which("v4l2-ctl")
     if not exe:
-        log.warning("v4l2-ctl not found; skipping camera controls (sudo dnf install v4l-utils)")
+        log.warning(
+            "v4l2-ctl not found; skipping camera controls (sudo dnf install v4l-utils)"
+        )
         return
     idx = cc["index"]
     dev = str(idx) if isinstance(idx, str) else f"/dev/video{idx}"
     for name, value in controls.items():
         try:
-            r = subprocess.run([exe, "-d", dev, f"--set-ctrl={name}={value}"],
-                               capture_output=True, text=True, timeout=5)
+            r = subprocess.run(
+                [exe, "-d", dev, f"--set-ctrl={name}={value}"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
         except (OSError, subprocess.SubprocessError) as e:
             log.warning("camera control %s=%s failed: %s", name, value, e)
             continue
         if r.returncode == 0:
             log.info("camera control %s=%s", name, value)
         else:
-            log.warning("camera control %s=%s not applied: %s", name, value,
-                        (r.stderr or r.stdout).strip() or f"exit {r.returncode}")
+            log.warning(
+                "camera control %s=%s not applied: %s",
+                name,
+                value,
+                (r.stderr or r.stdout).strip() or f"exit {r.returncode}",
+            )
 
 
 def build_hands(res, aspect: float, cfg: dict) -> list:
@@ -1178,22 +1351,31 @@ def run(args) -> int:
 
     notifier = Notifier(cfg["loop"]["notifications"] and not args.dry_run)
     sway = Sway(args.dry_run)
-    hand_notifier = Notifier(cfg["loop"]["notifications"] and cfg["loop"]["notify_hand"])
-    hud = Hud(cfg["loop"]["notifications"] and cfg["loop"]["hud"],
-              cfg["loop"]["hud_min_interval_s"], args.dry_run)
+    hand_notifier = Notifier(
+        cfg["loop"]["notifications"] and cfg["loop"]["notify_hand"]
+    )
+    hud = Hud(
+        cfg["loop"]["notifications"] and cfg["loop"]["hud"],
+        cfg["loop"]["hud_min_interval_s"],
+        args.dry_run,
+    )
     engine = Engine(cfg, sway, notifier, hand_notifier, hud)
 
     cap = open_camera(cfg["camera"])
     if cap is None:
-        log.error("could not open camera %s (check /dev/video*, 'video' group, other apps using it)",
-                  cfg["camera"]["index"])
+        log.error(
+            "could not open camera %s (check /dev/video*, 'video' group, other apps using it)",
+            cfg["camera"]["index"],
+        )
         Notifier(True).send("Could not open the camera", title="Gesture control")
         release_pidfile()
         return 1
     apply_camera_controls(cfg["camera"])
 
     dc = cfg["detector"]
-    log.info("loading MediaPipe Hands (model_complexity=%s) ...", dc["model_complexity"])
+    log.info(
+        "loading MediaPipe Hands (model_complexity=%s) ...", dc["model_complexity"]
+    )
     mp_hands = mp.solutions.hands
     mp_draw = mp.solutions.drawing_utils
     detector = mp_hands.Hands(
@@ -1206,11 +1388,17 @@ def run(args) -> int:
 
     lc = cfg["loop"]
     flip = cfg["camera"]["flip"]
-    log.info("running: active %d fps, idle %d fps%s%s",
-             lc["fps_active"], lc["fps_idle"],
-             ", DRY-RUN" if args.dry_run else "", ", preview" if args.preview else "")
+    log.info(
+        "running: active %d fps, idle %d fps%s%s",
+        lc["fps_active"],
+        lc["fps_idle"],
+        ", DRY-RUN" if args.dry_run else "",
+        ", preview" if args.preview else "",
+    )
     if not hud.enabled:
-        Notifier(not args.dry_run and lc["notifications"]).send("Gesture control started", title="Gesture control")
+        Notifier(not args.dry_run and lc["notifications"]).send(
+            "Gesture control started", title="Gesture control"
+        )
 
     next_t = 0.0
     # Camera frames arrive on a fixed tick; without slack, timer jitter makes us skip a
@@ -1265,8 +1453,11 @@ def run(args) -> int:
             new_idle = (now - last_hand_t) > lc["idle_after_s"]
             if new_idle != idle:
                 idle = new_idle
-                log.info("%s mode (%d fps)", "idle" if idle else "active",
-                         lc["fps_idle"] if idle else lc["fps_active"])
+                log.info(
+                    "%s mode (%d fps)",
+                    "idle" if idle else "active",
+                    lc["fps_idle"] if idle else lc["fps_active"],
+                )
             next_t = now + 1.0 / (lc["fps_idle"] if idle else lc["fps_active"])
 
             if args.preview:
@@ -1274,8 +1465,18 @@ def run(args) -> int:
                     for lm in res.multi_hand_landmarks:
                         mp_draw.draw_landmarks(frame, lm, mp_hands.HAND_CONNECTIONS)
                 y = 20
-                for line in [f"mode={engine.mode} {'idle' if idle else 'active'}"] + engine.debug_lines:
-                    cv2.putText(frame, line, (8, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                for line in [
+                    f"mode={engine.mode} {'idle' if idle else 'active'}"
+                ] + engine.debug_lines:
+                    cv2.putText(
+                        frame,
+                        line,
+                        (8, y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 0),
+                        1,
+                    )
                     y += 18
                 cv2.imshow("gestured (q to quit)", frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -1283,9 +1484,14 @@ def run(args) -> int:
 
             if now - stats_t >= lc["stats_every_s"]:
                 span = now - stats_t
-                log.info("alive: %.1f fps processed, hands in %d/%d frames, mode=%s, %s",
-                         frames / span, hand_frames, frames, engine.mode,
-                         "idle" if idle else "active")
+                log.info(
+                    "alive: %.1f fps processed, hands in %d/%d frames, mode=%s, %s",
+                    frames / span,
+                    hand_frames,
+                    frames,
+                    engine.mode,
+                    "idle" if idle else "active",
+                )
                 frames = 0
                 hand_frames = 0
                 stats_t = now
@@ -1305,21 +1511,36 @@ def run(args) -> int:
         if hud.enabled:
             hud.close("Gesture control stopped")
         else:
-            Notifier(not args.dry_run and lc["notifications"]).send("Gesture control stopped", title="Gesture control")
+            Notifier(not args.dry_run and lc["notifications"]).send(
+                "Gesture control stopped", title="Gesture control"
+            )
         log.info("stopped")
     return exit_code
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Hand-gesture control for Sway")
-    ap.add_argument("--config", help="path to config.toml "
-                    "(default: ~/.config/gestured/config.toml, then next to this script)")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="detect gestures and log the Sway commands, but do not send them")
-    ap.add_argument("--preview", action="store_true",
-                    help="show a debug window with landmarks and live measurements (needs XWayland)")
-    ap.add_argument("-v", "--verbose", action="store_true",
-                    help="debug logging: per-frame pinch ratios, finger states, poses")
+    ap.add_argument(
+        "--config",
+        help="path to config.toml "
+        "(default: ~/.config/gestured/config.toml, then next to this script)",
+    )
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="detect gestures and log the Sway commands, but do not send them",
+    )
+    ap.add_argument(
+        "--preview",
+        action="store_true",
+        help="show a debug window with landmarks and live measurements (needs XWayland)",
+    )
+    ap.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="debug logging: per-frame pinch ratios, finger states, poses",
+    )
     args = ap.parse_args()
 
     logging.basicConfig(
