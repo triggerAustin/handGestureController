@@ -1,14 +1,5 @@
-# gestured config. Copy to ~/.config/gestured/config.toml and edit freely.
-# Every setting here overrides the built-in default; anything omitted keeps its default.
-# Only the [[binding]] entries are required.
-
 [camera]
-index = 0
-width = 640
-height = 480
-fourcc = "MJPG"
-device_fps = 30
-flip = true
+# ... keep your working camera settings ...
 [camera.controls]
 exposure_dynamic_framerate = 0
 auto_exposure = 1
@@ -35,7 +26,7 @@ hud = true
 hud_min_interval_s = 0.12
 
 [detector]
-model_complexity = 0
+model_complexity =1 
 min_detection_confidence = 0.45
 min_tracking_confidence = 0.4
 swap_handedness = false
@@ -93,45 +84,34 @@ min_interval_s = 0.12
 count = 10
 wrap = true
 
-
-# Bindings
-#   gesture : palm_swipe_left | palm_swipe_right | pinch_drag_left | pinch_drag_right
-#             three_finger_swipe_left | three_finger_swipe_right
-#             three_finger_hold | fists_hold | thumbs_up_hold
-#             resize_spread_h | resize_squeeze_h | resize_spread_v | resize_squeeze_v
-#   hand    : left | right | any | both
-#   command : any Sway command(s), ";" chains them.
-#             Placeholders: {cur} current workspace, {next}, {prev} (wrap-aware)
-#   hold_s  : how long a hold gesture must be kept (hold gestures only)
-#   notify  : optional notification shown when a hold starts (cancelled if you let go)
-
+[pointer]
+enabled = true
+sensitivity = 2.5        # was 1.6 — 3× more responsive
+deadzone = 0.0025        # was 0.006 — allow smaller motions to register
+ema_alpha = 0.55         # was 0.45 — slightly less smoothing, less lag
+accel = 0.5              # was 0.35 — bigger multiplier for large motions# --- BINDINGS ---
+velocity_floor = 0.018 
 
 [[binding]]
-name = "palm left -> next workspace"
-gesture = "palm_swipe_left"
+name = "toggle cursor mode (pinky)"
+gesture = "pinky_hold"
+hand = "any"
+hold_s = 0.25
+command = "true"
+
+# Three-finger swipe = Switch Workspace (since peace is gone)
+[[binding]]
+name = "three-finger left -> next workspace"
+gesture = "three_finger_swipe_left"
 hand = "any"
 command = "workspace number {next}"
 
 [[binding]]
-name = "palm right -> previous workspace"
-gesture = "palm_swipe_right"
+name = "three-finger right -> previous workspace"
+gesture = "three_finger_swipe_right"
 hand = "any"
 command = "workspace number {prev}"
 
-# Three-finger swipe: grab the window and bring it with you.
-[[binding]]
-name = "three-finger swipe left -> move window left and follow"
-gesture = "three_finger_swipe_left"
-hand = "any"
-command = "move container to workspace number {prev}; workspace number {prev}"
-
-[[binding]]
-name = "three-finger swipe right -> move window right and follow"
-gesture = "three_finger_swipe_right"
-hand = "any"
-command = "move container to workspace number {next}; workspace number {next}"
-
-# Pinch-drag: send the window away, but STAY on the current workspace.
 [[binding]]
 name = "pinch left -> send window to previous workspace (stay)"
 gesture = "pinch_drag_left"
@@ -144,14 +124,23 @@ gesture = "pinch_drag_right"
 hand = "any"
 command = "move container to workspace number {next}"
 
+# Thumbs up = confirm
+[[binding]]
+name = "confirm dialog (thumbs up)"
+gesture = "thumbs_up_hold"
+hand = "any"
+hold_s = 0.25
+command = "exec wtype -k Return"
+
 [[binding]]
 name = "close window (single fist hold)"
 gesture = "fists_hold"
 hand = "any"
-hold_s = 0.5
+hold_s = 5
 notify = "Closing window - open your hand to cancel"
 command = "kill"
 
+# Two-hand resize
 [[binding]]
 name = "resize wider"
 gesture = "resize_spread_h"
@@ -175,10 +164,3 @@ name = "resize shorter"
 gesture = "resize_squeeze_v"
 hand = "both"
 command = "resize shrink height 10px"
-
-[[binding]]
-name = "confirm dialog (thumbs up)"
-gesture = "thumbs_up_hold"
-hand = "any"
-hold_s = 0.25
-command = "exec wtype -k Return"

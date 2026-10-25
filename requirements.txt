@@ -4,3 +4,4 @@ numpy<2
 opencv-contrib-python==4.10.0.84
 i3ipc>=2.2.1
 tomli>=2.0; python_version < "3.11"
+protobuf<4.21
